@@ -3,173 +3,98 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Earthy To-Do Web App</title>
+    <title>Shade & Shift To-Do</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
     <div class="container">
         
-        <!-- HEADER: Búsqueda y Filtros -->
+        <!-- HEADER BÚSQUEDA Y FILTRO -->
         <header class="top-bar">
             <div class="search-filter-group">
                 <div class="input-wrapper" style="position: relative;">
-                    <svg class="icon" style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--c-text-muted);" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                    <input type="text" id="searchInput" class="input-field" placeholder="Buscar tareas..." style="padding-left: 2.5rem;">
+                    <svg class="icon" style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--c-text-muted); width: 16px;" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    <input type="text" id="searchInput" class="input-field" placeholder="Buscar sombras maestras..." style="padding-left: 2.5rem;">
                 </div>
                 
                 <select id="tagFilter" class="input-field">
                     <option value="">Todos los Tags</option>
-                    <!-- Las opciones se inyectan dinámicamente -->
                 </select>
             </div>
             
             <button id="manageTagsBtn" class="btn">
-                <svg class="icon" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
+                <svg class="icon" style="width: 16px;" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
                 Gestionar Tags
             </button>
         </header>
 
-        <!-- PANEL DE REGISTRO DE TAREAS (Horizontal) -->
-        <section class="task-form-panel horizontal-panel">
+        <!-- PANEL HORIZONTAL DE CREACIÓN -->
+        <section class="task-form-panel">
             <form id="taskForm">
-                <input type="hidden" id="taskIdInput">
-                
-                <!-- Fila Principal Horizontal -->
-                <div class="form-row-main" style="display: flex; gap: 1rem; align-items: center; margin-bottom: 0.5rem;">
-                    <input type="text" id="titleInput" class="input-field" style="flex: 2; min-width: 250px;" placeholder="Agregar nueva tarea..." required>
+                <div style="display: flex; gap: 1rem; align-items: center; justify-content: space-between;">
+                    <input type="text" id="titleInput" class="input-field" style="flex: 2;" placeholder="Nueva tarea maestra..." required>
                     
-                    <div class="tag-selector-wrapper" style="position: relative; flex: 1;">
-                        <input type="text" id="tagSearchInput" class="input-field" style="width: 100%;" placeholder="Añadir Tags..." autocomplete="off">
-                        <div id="tagCustomDropdown" class="dropdown-menu" style="width: 100%; top: calc(100% + 5px);">
-                            <!-- Opciones y botón de crear se inyectan dinámicamente -->
-                        </div>
+                    <div style="position: relative; flex: 1;">
+                        <input type="text" id="tagSearchInput" class="input-field" style="width: 100%;" placeholder="Vincular Tags..." autocomplete="off">
+                        <div id="tagCustomDropdown" class="dropdown-menu" style="width: 100%;"></div>
                     </div>
-
-                    <input type="date" id="dateInput" class="input-field" style="flex: 1;">
                     
-                    <button type="submit" id="submitTaskBtn" class="btn btn-primary" style="padding: 0.75rem; border-radius: 50%;">
-                        <svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    <button type="submit" id="submitTaskBtn" class="btn btn-primary">
+                        Crear Destino
                     </button>
                 </div>
-
-                <div id="selectedTagsContainer" class="tags-container" style="justify-content: flex-start; margin-bottom: 0.5rem;">
-                    <!-- Tags seleccionados visualmente -->
-                </div>
-
-                <button type="button" id="cancelEditBtn" class="btn hidden" style="margin-bottom: 0.5rem;">Cancelar Edición</button>
-
-                <!-- Botón Toggle Detalles -->
-                <div>
-                    <button type="button" id="toggleDetailsBtn" style="background:none; border:none; color:var(--c-text-muted); font-size: 0.9rem; cursor: pointer; display: inline-flex; align-items:center; gap:0.5rem; transition: var(--transition);">
-                        <svg id="toggleIcon" class="icon" style="width:16px;height:16px; transition: transform 0.3s;" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                        Añadir detalles o pasos
-                    </button>
-                </div>
-
-                <!-- Detalles Extendidos (Colapsados por defecto) -->
-                <div id="extendedDetails" class="hidden" style="margin-top: 1rem; border-top: 1px solid var(--c-border); padding-top: 1.5rem; display: flex; gap: 2rem; flex-wrap: wrap;">
-                    <div style="flex: 1; min-width: 200px;">
-                        <label style="font-size: 0.85rem; font-weight: 600; color: var(--c-text-muted);">Información (Opcional)</label>
-                        <textarea id="descInput" class="input-field" placeholder="Detalles adicionales sobre esta tarea..." style="width: 100%; margin-top: 0.5rem; min-height: 100px;"></textarea>
-                    </div>
-                    <div style="flex: 1; min-width: 200px;">
-                        <label style="font-size: 0.85rem; font-weight: 600; color: var(--c-text-muted);">Pasos (Subtareas)</label>
-                        <div id="stepsContainer" class="dynamic-list" style="margin-top: 0.5rem;">
-                            <!-- Inputs dinámicos para pasos -->
-                        </div>
-                        <button type="button" id="addStepBtn" class="btn" style="margin-top: 0.5rem; font-size: 0.85rem; padding: 0.4rem 0.8rem; border: 1px dashed var(--c-secondary); color: var(--c-secondary); background: transparent;">
-                            <svg class="icon" style="width:16px;height:16px" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                            Agregar nuevo paso
-                        </button>
-                    </div>
-                </div>
+                <div id="selectedTagsContainer" class="tags-container" style="margin-top: 0.75rem;"></div>
             </form>
         </section>
 
-        <!-- TASK GRID (Masonry) -->
+        <!-- GRID DE ACORDEONES (Listado Drag & Drop) -->
         <main>
             <div id="tasksGrid" class="tasks-grid">
-                <!-- Las tareas se renderizan aquí -->
-            </div>
-            <div id="emptyState" class="hidden" style="text-align: center; padding: 4rem; color: var(--c-text-muted);">
-                <svg class="icon" viewBox="0 0 24 24" style="width: 48px; height: 48px; margin: 0 auto 1rem auto; opacity: 0.5;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-                <p>No se encontraron tareas. ¡Empieza por agregar una!</p>
+                <!-- Se inyectan las tareas mediante app.js -->
             </div>
         </main>
 
     </div>
 
-    <!-- MODAL: GESTIÓN DE TAGS -->
+    <!-- MODAL COMPLEJO: GESTIÓN DE TAGS -->
     <div id="tagsModal" class="modal-overlay">
         <div class="modal-content">
-            <div class="modal-header">
-                <h2>Gestionar Tags</h2>
-                <p style="color: var(--c-text-muted); font-size: 0.9rem;">Crea o elimina tags existentes.</p>
-            </div>
-            
-            <div class="form-group" style="flex-direction: row; gap: 0.5rem; align-items: flex-end;">
-                <div style="flex: 2;">
-                    <label>Nombre del Tag</label>
-                    <input type="text" id="newTagName" class="input-field" style="width: 100%;" placeholder="Ej. Trabajo">
-                </div>
-                <div style="flex: 1;">
-                    <label>Color</label>
-                    <input type="color" id="newTagColor" class="input-field" style="width: 100%; padding: 0.25rem; height: 46px;" value="#9DB395">
-                </div>
-                <button id="saveNewTagBtn" class="btn btn-primary" style="height: 46px;">Crear</button>
+            <div class="modal-header" style="margin-bottom: 1rem;">
+                <h2>Configuración de Tags</h2>
+                <p style="color: var(--c-text-muted); font-size: 0.9rem;">Cambia nombres y asigna la paleta cromática Shade & Shift.</p>
             </div>
 
-            <div style="margin-top: 1.5rem; max-height: 200px; overflow-y: auto;">
-                <ul id="tagsList" style="list-style: none; display: flex; flex-direction: column; gap: 0.5rem;">
-                    <!-- Lista de tags con botón de eliminar -->
-                </ul>
+            <!-- Creación manual directa -->
+            <div style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 1.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--c-border);">
+                <input type="text" id="newTagName" class="input-field" style="flex: 1;" placeholder="Nuevo Tag">
+                <button id="saveNewTagBtn" class="btn btn-primary">Añadir</button>
             </div>
 
-            <div class="modal-actions">
+            <ul id="tagsList" style="list-style: none; display: flex; flex-direction: column; gap: 1rem;">
+                <!-- Lista editable de tags -->
+            </ul>
+
+            <div class="modal-actions" style="margin-top: 2rem; text-align: right;">
                 <button id="closeTagsModalBtn" class="btn">Cerrar</button>
             </div>
         </div>
     </div>
 
-    <!-- MODAL: CONFIRMACIÓN DE BORRADO -->
+    <!-- MODAL CONFIRMACION DANGER -->
     <div id="deleteModal" class="modal-overlay">
         <div class="modal-content" style="max-width: 400px; text-align: center;">
             <div class="modal-header">
-                <svg class="icon" viewBox="0 0 24 24" style="width: 48px; height: 48px; color: var(--c-salmon); margin: 0 auto 1rem auto;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-                <h2>¿Eliminar Tarea?</h2>
-                <p style="color: var(--c-text-muted);">¿Estás seguro de que quieres eliminar esta tarea? Esta acción no se puede deshacer.</p>
+                <h2>¿Eliminar Sombra?</h2>
+                <p style="color: var(--c-text-muted);">Esta acción la borrará permanentemente de tu registro.</p>
             </div>
-            <div class="modal-actions" style="justify-content: center;">
+            <div style="display: flex; justify-content: center; gap: 1rem; margin-top: 1.5rem;">
                 <button id="cancelDeleteBtn" class="btn">Cancelar</button>
-                <button id="confirmDeleteBtn" class="btn btn-primary" style="background: var(--c-salmon); border-color: var(--c-salmon);">Confirmar Eliminar</button>
+                <button id="confirmDeleteBtn" class="btn" style="background: var(--c-salmon); color: white; border-color: var(--c-salmon);">Confirmar</button>
             </div>
         </div>
     </div>
 
-    <!-- MODAL: CREAR TAG RÁPIDO (Color Picker) -->
-    <div id="quickTagModal" class="modal-overlay">
-        <div class="modal-content" style="max-width: 350px;">
-            <div class="modal-header">
-                <h2>Elige un Color</h2>
-                <p style="color: var(--c-text-muted);">Selecciona un color para el nuevo tag <strong id="quickTagNameDisplay"></strong></p>
-            </div>
-            
-            <div class="color-options" style="display: flex; gap: 1rem; justify-content: center; margin: 1.5rem 0;">
-                <button class="color-pill" data-color="#9DB395" style="background:#9DB395; width:40px; height:40px; border-radius:50%; border:2px solid transparent; cursor:pointer;" title="Sage Green"></button>
-                <button class="color-pill" data-color="#7A96B4" style="background:#7A96B4; width:40px; height:40px; border-radius:50%; border:2px solid transparent; cursor:pointer;" title="Steel Blue"></button>
-                <button class="color-pill" data-color="#E8A090" style="background:#E8A090; width:40px; height:40px; border-radius:50%; border:2px solid transparent; cursor:pointer;" title="Pale Salmon"></button>
-                <button class="color-pill" data-color="#EAD8C1" style="background:#EAD8C1; width:40px; height:40px; border-radius:50%; border:2px solid transparent; cursor:pointer;" title="Sand Cream"></button>
-            </div>
-
-            <div class="modal-actions" style="justify-content: center; gap: 1rem;">
-                <button id="cancelQuickTagBtn" class="btn">Cancelar</button>
-                <button id="submitQuickTagBtn" class="btn btn-primary">Guardar Tag</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Contenedor para Feedback de Toasts -->
+    <!-- Toasts Feedback -->
     <div id="toastContainer" class="toast-container"></div>
 
     <script type="module" src="app.js"></script>
