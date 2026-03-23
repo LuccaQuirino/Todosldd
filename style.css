@@ -451,3 +451,48 @@ textarea.input-field {
 
 /* Utilities */
 .hidden { display: none !important; }
+
+/* ==== TOAST FEEDBACK & SPINNER ==== */
+.toast-container {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.toast {
+  background: var(--c-surface);
+  color: var(--c-text);
+  padding: 1rem 1.5rem;
+  border-radius: var(--radius-sm);
+  box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  transform: translateY(20px);
+  opacity: 0;
+  transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+.toast.show {
+  transform: translateY(0);
+  opacity: 1;
+}
+.toast.success { border-left: 4px solid var(--c-primary); }
+.toast.error { border-left: 4px solid var(--c-salmon); color: var(--c-salmon); }
+
+@keyframes spin { 100% { transform: rotate(360deg); } }
+.spinner {
+  animation: spin 1s linear infinite;
+  transform-origin: center;
+}
+
+/* Modal Color Pill Selection */
+.color-pill { transition: transform 0.2s, box-shadow 0.2s; outline: none; }
+.color-pill.selected {
+  transform: scale(1.15);
+  box-shadow: 0 0 0 2px var(--c-surface), 0 0 0 4px var(--c-secondary);
+}
+

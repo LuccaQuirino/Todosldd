@@ -1,18 +1,21 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'
 
 // ==========================================
-// CONFIGURACIÓN DE SUPABASE
+// CONFIGURACIÓN DE SUPABASE Y DIAGNÓSTICO
 // ==========================================
-// El usuario requiere específicamente el uso de process.env para Vite/Bundlers
-const SUPABASE_URL = typeof process !== 'undefined' ? process.env.SUPABASE_URL : (import.meta && import.meta.env ? import.meta.env.VITE_SUPABASE_URL : null);
-const SUPABASE_ANON_KEY = typeof process !== 'undefined' ? process.env.SUPABASE_ANON_KEY : (import.meta && import.meta.env ? import.meta.env.VITE_SUPABASE_ANON_KEY : null);
+// Prioriza process.env, luego import.meta (Vite), y finalmente el fallback estático.
+const SUPABASE_URL = (typeof process !== 'undefined' && process.env.SUPABASE_URL) || (import.meta && import.meta.env ? import.meta.env.VITE_SUPABASE_URL : null) || 'https://makchqjswyuuxuxvrake.supabase.co/';
+const SUPABASE_ANON_KEY = (typeof process !== 'undefined' && process.env.SUPABASE_ANON_KEY) || (import.meta && import.meta.env ? import.meta.env.VITE_SUPABASE_ANON_KEY : null) || 'sb_publishable_KGdTd-AG8v3EOueOVumNYA_WDoCaICL';
+
+console.log("=== DIAGNÓSTICO DE CONEXIÓN A SUPABASE ===");
+console.log("URL Registrada:", SUPABASE_URL);
+if (!SUPABASE_URL || !SUPABASE_URL.startsWith('http')) {
+    console.error("URL Invalida. Faltan variables de entorno o error en fallback.");
+}
 
 let supabase = null;
 if (SUPABASE_URL) {
     supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-} else {
-    // Fallback de seguridad si no hay variables configuradas en el entorno
-    console.warn("SUPABASE_URL no encontrado en variables de entorno.");
 }
 
 // ==========================================
@@ -21,28 +24,23 @@ if (SUPABASE_URL) {
 let state = {
     tasks: [],
     tags: [],
-    filters: {
-        search: '',
-        tagId: ''
-    },
-    // Formulario principal
+    filters: { search: '', tagId: '' },
     formSteps: [],
     formSelectedTags: [],
     editingTaskId: null,
     deletingTaskId: null,
-    pendingNewTagName: ''
+    pendingNewTagName: '',
+    pendingNewTagColor: null
 };
 
 // ==========================================
-// REFERENCIAS DOM
+// REFERENCIAS DOM Y FEEDBACK (TOASTS)
 // ==========================================
 const DOM = {
-    // Header & Filtros
     searchInput: document.getElementById('searchInput'),
     tagFilter: document.getElementById('tagFilter'),
     manageTagsBtn: document.getElementById('manageTagsBtn'),
     
-    // Formulario Horizontal Principal
     taskForm: document.getElementById('taskForm'),
     titleInput: document.getElementById('titleInput'),
     dateInput: document.getElementById('dateInput'),
@@ -52,7 +50,6 @@ const DOM = {
     submitTaskBtn: document.getElementById('submitTaskBtn'),
     cancelEditBtn: document.getElementById('cancelEditBtn'),
     
-    // Detalles Expandibles
     toggleDetailsBtn: document.getElementById('toggleDetailsBtn'),
     toggleIcon: document.getElementById('toggleIcon'),
     extendedDetails: document.getElementById('extendedDetails'),
@@ -60,11 +57,9 @@ const DOM = {
     stepsContainer: document.getElementById('stepsContainer'),
     addStepBtn: document.getElementById('addStepBtn'),
     
-    // Grid
     tasksGrid: document.getElementById('tasksGrid'),
     emptyState: document.getElementById('emptyState'),
     
-    // Modales Secundarios
     tagsModal: document.getElementById('tagsModal'),
     closeTagsModalBtn: document.getElementById('closeTagsModalBtn'),
     newTagName: document.getElementById('newTagName'),
@@ -75,25 +70,54 @@ const DOM = {
     cancelDeleteBtn: document.getElementById('cancelDeleteBtn'),
     confirmDeleteBtn: document.getElementById('confirmDeleteBtn'),
     
-    // Modal Creación de Tag Rápido
     quickTagModal: document.getElementById('quickTagModal'),
     quickTagNameDisplay: document.getElementById('quickTagNameDisplay'),
     cancelQuickTagBtn: document.getElementById('cancelQuickTagBtn'),
-    colorPills: document.querySelectorAll('.color-pill')
+    submitQuickTagBtn: document.getElementById('submitQuickTagBtn'),
+    colorPills: document.querySelectorAll('.color-pill'),
+
+    toastContainer: document.getElementById('toastContainer')
 };
+
+// ==========================================
+// UTILIDADES UI: TOASTS & SPINNERS
+// ==========================================
+function showToast(msg, type = 'success') {
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.innerHTML = type === 'success' ? `✓ ${msg}` : `⚠️ ${msg}`;
+    DOM.toastContainer.appendChild(toast);
+    
+    setTimeout(() => toast.classList.add('show'), 10);
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, 3500);
+}
+
+function setBtnLoading(btn, isLoading, originalHtml = '') {
+    if (isLoading) {
+        btn.disabled = true;
+        btn.dataset.original = btn.innerHTML;
+        btn.innerHTML = `<svg class="spinner icon" viewBox="0 0 24 24" style="stroke-width:3; color:currentColor"><circle cx="12" cy="12" r="10" stroke="currentColor" fill="none" stroke-dasharray="31.4" stroke-linecap="round"></circle></svg>`;
+    } else {
+        btn.disabled = false;
+        btn.innerHTML = btn.dataset.original || originalHtml;
+    }
+}
 
 // ==========================================
 // INICIALIZACIÓN
 // ==========================================
 async function init() {
+    setupEventListeners();
     if (!supabase) {
-        showEmptyState("No olvides empaquetar tu app estableciendo process.env.SUPABASE_URL");
-        setupEventListeners(); // Aún montamos los listeners por si UI tests
+        showEmptyState("No olvides configurar SUPABASE_URL. El cliente no inicializó.");
+        showToast("Error de inicialización de Supabase", "error");
         return;
     }
     await fetchTags();
     await fetchTasks();
-    setupEventListeners();
 }
 
 // ==========================================
@@ -106,18 +130,17 @@ async function fetchTags() {
         state.tags = data || [];
         renderTagFilters();
         renderManageTagsList();
-    } catch (error) { console.error('Error fetchTags:', error); }
+    } catch (error) { 
+        console.error('Error fetchTags:', error);
+        showToast("No pudimos actualizar los Tags.", "error"); 
+    }
 }
 
 async function fetchTasks() {
     try {
         const { data, error } = await supabase
             .from('tasks')
-            .select(`
-                *,
-                task_steps(*),
-                task_tags(tags(*))
-            `)
+            .select(`*, task_steps(*), task_tags(tags(*))`)
             .order('created_at', { ascending: false });
 
         if (error) throw error;
@@ -129,55 +152,59 @@ async function fetchTasks() {
         }));
         
         renderTasks();
-    } catch (error) { console.error('Error fetchTasks:', error); }
+    } catch (error) { 
+        console.error('Error fetchTasks [CÓDIGO', error?.code, ']:', error); 
+        showToast("Error al cargar tareas", "error");
+    }
 }
 
 async function handleTaskSubmit(e) {
     e.preventDefault();
     if (!supabase) return;
 
+    // Validación Manual (adicional al HTML required)
+    const titleVal = DOM.titleInput.value.trim();
+    if (!titleVal) {
+        showToast("El título de la tarea es requerido.", "error");
+        DOM.titleInput.focus();
+        return;
+    }
+
     const taskData = {
-        title: DOM.titleInput.value.trim(),
+        title: titleVal,
         description: DOM.descInput.value.trim() || null,
         due_date: DOM.dateInput.value || null,
     };
 
-    DOM.submitTaskBtn.disabled = true;
+    setBtnLoading(DOM.submitTaskBtn, true);
 
     try {
         if (state.editingTaskId) {
             await updateTask(state.editingTaskId, taskData);
+            showToast("Tarea actualizada con éxito");
         } else {
             await createTask(taskData);
+            showToast("Tarea creada correctamente");
         }
         resetForm();
         await fetchTasks();
     } catch (error) {
-        console.error('Error al guardar tarea', error);
-        alert('Ocurrió un error al guardar la tarea');
+        console.error('Error al guardar tarea:', error);
+        showToast(`No se pudo guardar la tarea. HTTP ${error?.code || error?.status || 'Error'}`, "error");
     } finally {
-        DOM.submitTaskBtn.disabled = false;
+        setBtnLoading(DOM.submitTaskBtn, false, '<svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>');
     }
 }
 
 async function createTask(taskData) {
-    // 1. Insertar Tarea principal
-    const { data: insertedTask, error: taskError } = await supabase
-        .from('tasks')
-        .insert([taskData])
-        .select()
-        .single();
+    const { data: insertedTask, error: taskError } = await supabase.from('tasks').insert([taskData]).select().single();
     if (taskError) throw taskError;
 
     const taskId = insertedTask.id;
 
-    // 2. Insertar Pasos de forma correcta
     if (state.formSteps.length > 0) {
         const stepsToInsert = state.formSteps.filter(s => s.text.trim()).map((step, idx) => ({
-            task_id: taskId,
-            step_text: step.text.trim(),
-            order: idx,
-            is_completed: false
+            task_id: taskId, step_text: step.text.trim(), order: idx, is_completed: false
         }));
         if(stepsToInsert.length > 0){
             const { error: stepsError } = await supabase.from('task_steps').insert(stepsToInsert);
@@ -185,43 +212,30 @@ async function createTask(taskData) {
         }
     }
 
-    // 3. Vincular Tags
     if (state.formSelectedTags.length > 0) {
-        const tagsToInsert = state.formSelectedTags.map(tagId => ({
-            task_id: taskId,
-            tag_id: tagId
-        }));
+        const tagsToInsert = state.formSelectedTags.map(tagId => ({ task_id: taskId, tag_id: tagId }));
         const { error: tagsError } = await supabase.from('task_tags').insert(tagsToInsert);
         if (tagsError) throw tagsError;
     }
 }
 
 async function updateTask(taskId, taskData) {
-    // 1. Update tarea principal
     const { error: taskError } = await supabase.from('tasks').update(taskData).eq('id', taskId);
     if (taskError) throw taskError;
 
-    // 2. Borrar pasos viejos e re-insertar
     await supabase.from('task_steps').delete().eq('task_id', taskId);
     if (state.formSteps.length > 0) {
         const stepsToInsert = state.formSteps.filter(s => s.text.trim()).map((step, idx) => ({
-            task_id: taskId,
-            step_text: step.text.trim(),
-            order: idx,
-            is_completed: step.is_completed || false
+            task_id: taskId, step_text: step.text.trim(), order: idx, is_completed: step.is_completed || false
         }));
         if(stepsToInsert.length > 0){
             await supabase.from('task_steps').insert(stepsToInsert);
         }
     }
 
-    // 3. Borrar tags viejos e re-insertar
     await supabase.from('task_tags').delete().eq('task_id', taskId);
     if (state.formSelectedTags.length > 0) {
-        const tagsToInsert = state.formSelectedTags.map(tagId => ({
-            task_id: taskId,
-            tag_id: tagId
-        }));
+        const tagsToInsert = state.formSelectedTags.map(tagId => ({ task_id: taskId, tag_id: tagId }));
         await supabase.from('task_tags').insert(tagsToInsert);
     }
 }
@@ -231,23 +245,25 @@ async function updateTask(taskId, taskData) {
 // ==========================================
 window.app = {
     toggleTaskCompletion: async (taskId, is_completed) => {
+        const t = state.tasks.find(t=>t.id === taskId);
         try {
-            const t = state.tasks.find(t=>t.id === taskId);
             if(t) t.is_completed = is_completed;
             renderTasks();
-            await supabase.from('tasks').update({ is_completed }).eq('id', taskId);
-        } catch(e) { fetchTasks(); }
+            const {error} = await supabase.from('tasks').update({ is_completed }).eq('id', taskId);
+            if(error) throw error;
+        } catch(e) { fetchTasks(); showToast("Error al completar tarea", "error"); }
     },
     toggleStep: async (stepId, is_completed, taskId) => {
+        const t = state.tasks.find(t=>t.id === taskId);
         try {
-            const t = state.tasks.find(t=>t.id === taskId);
             if(t) {
                 const s = t.task_steps.find(s=>s.id === stepId);
                 if(s) s.is_completed = is_completed;
             }
             renderTasks();
-            await supabase.from('task_steps').update({ is_completed }).eq('id', stepId);
-        } catch(e) { fetchTasks(); }
+            const {error} = await supabase.from('task_steps').update({ is_completed }).eq('id', stepId);
+            if(error) throw error;
+        } catch(e) { fetchTasks(); showToast("Error al completar paso", "error");}
     },
     toggleDropdown: (btn) => {
         document.querySelectorAll('.dropdown-menu').forEach(menu => {
@@ -296,18 +312,19 @@ window.app = {
     deleteTag: async (tagId) => {
         if(!confirm("¿Seguro que quieres borrar este tag? Se removerá de todas las tareas.")) return;
         try {
-            await supabase.from('tags').delete().eq('id', tagId);
+            const {error} = await supabase.from('tags').delete().eq('id', tagId);
+            if(error) throw error;
+            showToast("Tag eliminado", "success");
             await fetchTags();
             await fetchTasks();
-        } catch (e) { alert("Error al borrar: " + e.message); }
+        } catch (e) { showToast("Error al borrar tag", "error"); console.error(e); }
     },
     
     // --- LÓGICA SEARCH TAGS INLINE ---
     handleTagSearch: () => {
         const term = DOM.tagSearchInput.value.trim().toLowerCase();
-        DOM.tagCustomDropdown.innerHTML = ''; // Clear
+        DOM.tagCustomDropdown.innerHTML = ''; 
         
-        // Filtramos tags que existen en bd que hagan match y que no esten ya seleccionados
         let matches = state.tags.filter(t => t.name.toLowerCase().includes(term) && !state.formSelectedTags.includes(t.id));
         
         if (matches.length > 0) {
@@ -326,7 +343,6 @@ window.app = {
             });
         }
     
-        // Si hay texto y NO existe un tag idéntico, sugerir Crearlo dinámicamente
         if (term !== '' && !state.tags.some(t => t.name.toLowerCase() === term)) {
             const createBtn = document.createElement('button');
             createBtn.type = 'button';
@@ -336,6 +352,10 @@ window.app = {
             createBtn.innerHTML = `+ Crear tag "${DOM.tagSearchInput.value.trim()}"`;
             createBtn.onclick = () => {
                  state.pendingNewTagName = DOM.tagSearchInput.value.trim();
+                 // Limpiamos color previo visualmente
+                 DOM.colorPills.forEach(p => p.classList.remove('selected'));
+                 state.pendingNewTagColor = null;
+
                  DOM.quickTagNameDisplay.textContent = state.pendingNewTagName;
                  DOM.quickTagModal.classList.add('active');
                  DOM.tagCustomDropdown.classList.remove('active');
@@ -350,16 +370,22 @@ window.app = {
         }
     },
     
-    // CREAR EL NUEVO TAG AL SELECCIONAR COLOR EN EL MODAL MINIMALISTA
-    createNewTagQuick: async (colorHex) => {
-        if (!state.pendingNewTagName || !supabase) return;
+    // CREAR EL NUEVO TAG - MODAL QUICK ACTION
+    createNewTagQuick: async () => {
+        if (!state.pendingNewTagName || !state.pendingNewTagColor) {
+            showToast("Verifica que haya un nombre y color elegidos.", "error");
+            return;
+        }
+        
+        setBtnLoading(DOM.submitQuickTagBtn, true);
         try {
             const { data, error } = await supabase.from('tags')
-                .insert([{ name: state.pendingNewTagName, color: colorHex }])
+                .insert([{ name: state.pendingNewTagName, color: state.pendingNewTagColor }])
                 .select()
                 .single();
             if (error) throw error;
             
+            showToast("Tag creado con éxito");
             await fetchTags();
             state.formSelectedTags.push(data.id);
             renderFormTags();
@@ -367,8 +393,12 @@ window.app = {
             DOM.tagSearchInput.value = '';
             DOM.quickTagModal.classList.remove('active');
             state.pendingNewTagName = '';
+            state.pendingNewTagColor = null;
         } catch (e) {
-            alert("Ocurrió un error al crear el tag.");
+            console.error(e);
+            showToast(`Error al crear tag: ${e?.message || 'Revisa duplicados'}`, "error");
+        } finally {
+            setBtnLoading(DOM.submitQuickTagBtn, false, 'Guardar Tag');
         }
     }
 };
@@ -472,8 +502,6 @@ function resetForm() {
     renderFormTags();
     DOM.submitTaskBtn.innerHTML = '<svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>';
     DOM.cancelEditBtn.classList.add('hidden');
-    
-    // Oculta detalles al resetear para conservar el modo horizontal limpio
     DOM.extendedDetails.classList.add('hidden');
     DOM.toggleIcon.style.transform = 'rotate(0deg)';
 }
@@ -517,20 +545,16 @@ function renderFormTags() {
 // EVENT LISTENERS DE CONFIGURACIÓN
 // ==========================================
 function setupEventListeners() {
-    // ---- FORMULARIO ----
     DOM.taskForm.addEventListener('submit', handleTaskSubmit);
     DOM.cancelEditBtn.addEventListener('click', resetForm);
     
-    // Añadir pasos y auto enfocar
     DOM.addStepBtn.addEventListener('click', () => {
         state.formSteps.push({ text: '', is_completed: false });
         renderFormSteps();
-        // Foco inmediato al nuevo paso creado
         const inputs = DOM.stepsContainer.querySelectorAll('input');
         if (inputs.length > 0) inputs[inputs.length - 1].focus();
     });
 
-    // Toggle Detalles Expandibles
     DOM.toggleDetailsBtn.addEventListener('click', () => {
         DOM.extendedDetails.classList.toggle('hidden');
         if (DOM.extendedDetails.classList.contains('hidden')) {
@@ -540,11 +564,9 @@ function setupEventListeners() {
         }
     });
 
-    // Tag Input Búsqueda Dinámica
     DOM.tagSearchInput.addEventListener('focus', window.app.handleTagSearch);
     DOM.tagSearchInput.addEventListener('input', window.app.handleTagSearch);
     
-    // ---- FILTROS GLOBALES ----
     DOM.searchInput.addEventListener('input', (e) => {
         state.filters.search = e.target.value;
         renderTasks();
@@ -554,17 +576,23 @@ function setupEventListeners() {
         renderTasks();
     });
 
-    // ---- MODALES ----
-    // Delete
+    // Delete task
     DOM.cancelDeleteBtn.addEventListener('click', () => DOM.deleteModal.classList.remove('active'));
     DOM.confirmDeleteBtn.addEventListener('click', async () => {
         if (!supabase || !state.deletingTaskId) return;
+        setBtnLoading(DOM.confirmDeleteBtn, true);
         try {
             await supabase.from('tasks').delete().eq('id', state.deletingTaskId);
+            showToast("Tarea eliminada exitosamente");
             state.deletingTaskId = null;
             DOM.deleteModal.classList.remove('active');
             await fetchTasks();
-        } catch (e) { alert("Error delete: " + e.message); }
+        } catch (e) { 
+            showToast("Error al borrar la tarea", "error"); 
+            console.error(e);
+        } finally {
+            setBtnLoading(DOM.confirmDeleteBtn, false, 'Confirmar Eliminar');
+        }
     });
 
     // Manage General Tags
@@ -573,12 +601,18 @@ function setupEventListeners() {
     DOM.saveNewTagBtn.addEventListener('click', async () => {
         const name = DOM.newTagName.value.trim();
         const color = DOM.newTagColor.value;
-        if (!name || !supabase) return;
+        if (!name) { showToast("El nombre de la categoría es requerido", "error"); return; }
+        setBtnLoading(DOM.saveNewTagBtn, true);
         try {
             await supabase.from('tags').insert([{ name, color }]);
+            showToast("Tag creado con éxito");
             DOM.newTagName.value = '';
             await fetchTags();
-        } catch (e) { alert("Error: el tag ya existe u ocurrió un error."); }
+        } catch (e) { 
+            showToast("Error al crear la categoría", "error"); 
+        } finally {
+            setBtnLoading(DOM.saveNewTagBtn, false, 'Crear');
+        }
     });
     
     // Quick Tag Modal inline create
@@ -586,10 +620,21 @@ function setupEventListeners() {
         DOM.quickTagModal.classList.remove('active');
         state.pendingNewTagName = '';
     });
+    
+    DOM.submitQuickTagBtn.addEventListener('click', () => {
+        if(!state.pendingNewTagColor) {
+            showToast("Selecciona un color para continuar", "error");
+            return;
+        }
+        window.app.createNewTagQuick();
+    });
+
     DOM.colorPills.forEach(pill => {
         pill.addEventListener('click', (e) => {
             e.preventDefault();
-            window.app.createNewTagQuick(e.target.dataset.color);
+            DOM.colorPills.forEach(p => p.classList.remove('selected'));
+            pill.classList.add('selected');
+            state.pendingNewTagColor = e.target.dataset.color;
         });
     });
 }
